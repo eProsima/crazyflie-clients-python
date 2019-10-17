@@ -28,7 +28,7 @@ The main file for the Crazyflie control application.
 """
 import logging
 import sys
-
+import pty,os
 import cfclient
 import cfclient.ui.tabs
 import cfclient.ui.toolboxes
@@ -63,6 +63,8 @@ from .dialogs.cf1config import Cf1ConfigDialog
 from .dialogs.cf2config import Cf2ConfigDialog
 from .dialogs.inputconfigdialogue import InputConfigDialogue
 from .dialogs.logconfigdialogue import LogConfigDialogue
+
+from cflib.crtp.crtpstack import CRTPPacket
 
 __author__ = 'Bitcraze AB'
 __all__ = ['MainUI']
@@ -188,6 +190,12 @@ class MainUI(QtWidgets.QMainWindow, main_window_class):
         self.scanner = ScannerThread()
         self.scanner.interfaceFoundSignal.connect(self.foundInterfaces)
         self.scanner.start()
+
+        #Micro-XRCE-DDS bridge initialization.
+        self.bridge = bridgeThread(self.cf)
+        #Attached the crazyflie received callback
+        self.cf.packet_received.add_callback(self.bridge.input)
+        self.bridge.start()
 
         # Create and start the Input Reader
         self._statusbar_label = QLabel("No input-device found, insert one to"
@@ -852,3 +860,32 @@ class ScannerThread(QThread):
 
     def scan(self, address):
         self.interfaceFoundSignal.emit(cflib.crtp.scan_interfaces(address))
+
+# Micro-XRCE-DDS bridge.
+class bridgeThread(QThread):
+    #Create a Pseudo serial Port
+    master,slave = pty.openpty()
+    master_name = os.ttyname(master)
+    slave_name = os.ttyname(slave)
+
+    print('============= Micro-XRCE-DDS bridge port: %s =============' % slave_name)
+
+    def __init__(self,crazyflie):
+        self.cf=crazyflie
+        QThread.__init__(self)
+
+    def run(self):
+        #Thread to check if there are new data on the PTY, create a CRTP packet 
+        #and send to radio.
+        while 1:
+            data = os.read(self.master,50)
+            if(data):
+                pk = CRTPPacket()
+                pk.port = 8
+                pk.data = data  # struct.pack('<fffH', roll, -pitch, yaw, thrust)
+                self.cf.send_packet(pk)
+
+    def input(self,pk):
+        #Callback to handle the incoming message from the radio.
+        if(pk.port == 8 and pk.channel == 0):
+            os.write(self.master,pk.data)

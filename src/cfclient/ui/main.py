@@ -869,13 +869,16 @@ class bridgeThread(QThread):
     slave_name = os.ttyname(slave)
 
     print('============= Micro-XRCE-DDS bridge port: %s =============' % slave_name)
+    f = open("../used_serialport.txt", "w+")
+    f.write("%s" % slave_name)
+    f.close()
 
     def __init__(self,crazyflie):
         self.cf=crazyflie
         QThread.__init__(self)
 
     def run(self):
-        #Thread to check if there are new data on the PTY, create a CRTP packet 
+        #Thread to check if there are new data on the PTY, create a CRTP packet
         #and send to radio.
         while 1:
             data = os.read(self.master,50)

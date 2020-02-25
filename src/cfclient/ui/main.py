@@ -880,8 +880,9 @@ class bridgeThread(QThread):
     def run(self):
         #Thread to check if there are new data on the PTY, create a CRTP packet
         #and send to radio.
+        #TODO (pablo): Buffer the input stream to avoid sending packages of lenght 1
         while 1:
-            data = os.read(self.master,50)
+            data = os.read(self.master,30)
             if(data):
                 pk = CRTPPacket()
                 pk.port = 8

@@ -869,8 +869,8 @@ class bridgeThread(QThread):
     slave_name = os.ttyname(slave)
 
     print('============= Micro-XRCE-DDS bridge port: %s =============' % slave_name)
-    f = open("../used_serialport.txt", "w+")
-    f.write("%s" % slave_name)
+    f = open("/.env/variables.env", "w+")
+    f.write("SERIAL_DEV=%s" % slave_name)
     f.close()
 
     def __init__(self,crazyflie):
